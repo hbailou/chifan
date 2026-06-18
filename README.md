@@ -1,8 +1,8 @@
-# Chi-Fan! v3.0
+# Chi-Fan! v3.3
 
-Commercial-polish version of the live site lunch ordering app.
+Live production refinement version of the live site lunch ordering app.
 
-## What changed in v3.0
+## What changed in v3.3
 
 - More professional visual design and table styling
 - Subtle low-emphasis Edit / Remove actions
