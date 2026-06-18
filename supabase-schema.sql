@@ -62,7 +62,6 @@ create table if not exists order_items (
   paid boolean default false,
   note text,
   updated_at timestamptz default now(),
-  created_at timestamptz default now(),
   unique(daily_order_id, person_id)
 );
 
@@ -93,11 +92,3 @@ exception when duplicate_object then null; end $$;
 do $$ begin
 create policy "public order_items all" on order_items for all using (true) with check (true);
 exception when duplicate_object then null; end $$;
-
-
--- Migration for existing projects created with earlier Chi-Fan v2 schema
-alter table if exists public.order_items add column if not exists created_at timestamptz default now();
-
--- Chi-Fan v2.2 compatibility fields
-alter table if exists public.order_items add column if not exists created_at timestamptz default now();
-alter table if exists public.order_items add column if not exists updated_at timestamptz default now();

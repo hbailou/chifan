@@ -3,15 +3,7 @@ const seed={people:[{id:'p1',name:'Hassan',team:'PM',phone:'',tsmc_phone_full:''
 function local(){return JSON.parse(localStorage.getItem('chifan-v2')||JSON.stringify(seed))}
 function save(d){localStorage.setItem('chifan-v2',JSON.stringify(d))}
 const uid=()=>crypto.randomUUID?.()||Math.random().toString(36).slice(2);
-export async function list(table){
-  if(hasSupabase){
-    const sortColumn = table === 'order_items' ? 'updated_at' : 'created_at';
-    const {data,error}=await supabase.from(table).select('*').order(sortColumn,{ascending:true});
-    if(error){ console.error('Chi-Fan Supabase list error', table, error); return [] }
-    return data||[]
-  }
-  return local()[table]||[]
-}
+export async function list(table){if(hasSupabase){const {data,error}=await supabase.from(table).select('*').order('created_at',{ascending:true}); if(error) throw error; return data||[]} return local()[table]||[]}
 export async function insert(table,row){if(hasSupabase){const {data,error}=await supabase.from(table).insert(row).select().single(); if(error) throw error; return data} const d=local(); const newRow={id:uid(),created_at:new Date().toISOString(),...row}; d[table]=[...(d[table]||[]),newRow]; save(d); return newRow}
 export async function update(table,id,patch){if(hasSupabase){const {data,error}=await supabase.from(table).update(patch).eq('id',id).select().single(); if(error) throw error; return data} const d=local(); d[table]=(d[table]||[]).map(x=>x.id===id?{...x,...patch}:x); save(d); return d[table].find(x=>x.id===id)}
 export async function remove(table,id){if(hasSupabase){const {error}=await supabase.from(table).delete().eq('id',id); if(error) throw error; return} const d=local(); d[table]=(d[table]||[]).filter(x=>x.id!==id); save(d)}
