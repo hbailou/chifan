@@ -162,3 +162,100 @@ aside button{
   .dashboardActions{gap:8px;}
   button,.btn{font-size:13.5px;padding:8px 12px;}
 }
+
+/* v3.6.2 Sidebar compact-fit update */
+:root{--sidebar:260px;}
+aside{
+  padding:18px 18px 14px;
+  gap:8px;
+  overflow:hidden;
+}
+.brand{
+  gap:10px;
+  margin-bottom:12px;
+  flex-shrink:0;
+}
+.logo{
+  width:46px;
+  height:46px;
+  border-radius:15px;
+  font-size:21px;
+}
+.brand b{
+  font-size:24px;
+  line-height:1.05;
+}
+.brand span{
+  font-size:14px;
+  line-height:1.25;
+}
+.sideSearch{
+  margin:2px 0 8px;
+  padding:0 10px;
+  min-height:36px;
+  flex-shrink:0;
+}
+.sideSearch input{
+  height:36px;
+  font-size:13px;
+}
+aside nav{
+  gap:2px;
+  overflow:visible;
+  flex:0 0 auto;
+  padding-bottom:0;
+}
+aside button{
+  padding:9px 12px;
+  min-height:36px;
+  border-radius:12px;
+  font-size:14px;
+  line-height:1;
+  gap:9px;
+}
+aside button svg{
+  width:17px;
+  height:17px;
+  flex:0 0 auto;
+}
+.sidebarFooter{
+  margin-top:auto;
+  padding-top:9px;
+  gap:5px;
+  flex-shrink:0;
+}
+.sidebarFooter label{
+  font-size:10px;
+  line-height:1;
+}
+aside select{
+  padding:7px 10px;
+  min-height:34px;
+  border-radius:11px;
+  font-size:13px;
+  background:rgba(255,255,255,.08);
+}
+@media(max-height:760px){
+  aside{padding:14px 16px 10px;gap:5px;}
+  .brand{margin-bottom:8px;}
+  .logo{width:40px;height:40px;border-radius:13px;font-size:19px;}
+  .brand b{font-size:21px;}
+  .brand span{font-size:12px;}
+  .sideSearch{min-height:32px;margin-bottom:5px;}
+  .sideSearch input{height:32px;font-size:12px;}
+  aside nav{gap:1px;}
+  aside button{padding:7px 10px;min-height:32px;font-size:13px;border-radius:10px;}
+  aside button svg{width:16px;height:16px;}
+  .sidebarFooter{padding-top:7px;gap:4px;}
+  aside select{min-height:30px;padding:5px 9px;font-size:12px;border-radius:10px;}
+}
+@media(max-width:1100px){
+  :root{--sidebar:76px;}
+  aside{padding:12px 8px;}
+  aside button{min-height:34px;padding:8px 6px;}
+  .loadingBar{left:76px;}
+}
+@media(max-width:760px){
+  aside{padding:10px;}
+  aside nav{overflow:auto;}
+}
