@@ -1,17 +1,6 @@
-# Chi-Fan! v3.3
+# Chi-Fan! v3.4 UX Polish
 
-Live production refinement version of the live site lunch ordering app.
-
-## What changed in v3.3
-
-- More professional visual design and table styling
-- Subtle low-emphasis Edit / Remove actions
-- Sticky table headers, row hover states, zebra-striping
-- Cleaner action column behavior
-- Better focus states for form inputs
-- Keeps the v2.3 editable people, restaurant, category, and meal workflow
-- Keeps bilingual English / Traditional Chinese support
-- Keeps Supabase live database support
+Commercial UX polish version for the live site lunch ordering app.
 
 ## Run locally with PowerShell
 
@@ -20,31 +9,26 @@ npm install --registry=https://registry.npmjs.org/
 npm run dev
 ```
 
-If replacing an older folder:
+Open:
 
-```powershell
-Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
-Remove-Item -Force package-lock.json -ErrorAction SilentlyContinue
-npm cache clean --force
-npm install --registry=https://registry.npmjs.org/
-npm run dev
+```text
+http://127.0.0.1:5173/
 ```
 
-## Environment
+## Deploy
 
-Create a `.env` file:
+Push the project to GitHub. Vercel will build with:
 
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_or_publishable_key
+```text
+npm run build
 ```
 
-## Database
+Output directory:
 
-Run `supabase-schema.sql` in Supabase SQL Editor if your database is not created yet.
+```text
+dist
+```
 
+## Notes
 
-## v3.1 quick update
-- Pending users are converted to No order when an order is confirmed.
-- Withdraw confirmation is now a low-emphasis text action.
-- Summary tables now show the selected restaurant for the day.
+Do not upload `node_modules`, `dist`, or `.env` to GitHub. Use `.env.example` as the template.
