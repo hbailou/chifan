@@ -1,40 +1,58 @@
-# Chi-Fan! v3.6 Professional UI Polish
+# Chi-Fan v4.1.1 Admin Management
 
-This release keeps the existing workflow and functionality intact while improving UI consistency.
+This package is a clean v4 build with admin user/group management.
 
-## Included
+## Fresh setup
 
-- Full placeholder visibility improvements
-- Consistent input heights, padding, font size, and focus styling
-- Better responsive form grids
-- Improved mobile field readability
-- Updated version marking: v3.6
-- Simplified About page
-- Smaller, calmer buttons across forms
-- Dashboard action buttons aligned horizontally where space allows
-- Same Supabase/Vercel setup as previous versions
+1. In Supabase, delete old test users:
+   Authentication > Users > delete test users.
 
-## PowerShell
+2. In Supabase SQL Editor, run:
+   `supabase-full-reset-v4.sql`
+
+3. Create `.env` in the project root:
+
+```env
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+
+4. Run locally:
 
 ```powershell
 npm install --registry=https://registry.npmjs.org/
 npm run dev
 ```
 
-Open:
+5. Open:
 
 ```text
 http://127.0.0.1:5173/
 ```
 
-## Vercel deployment
+6. Register the first admin:
 
-Push these files to GitHub. Vercel will rebuild automatically.
+- Name: Hassan Bailou
+- Email: hassan.bailou@siemens.com
+- Password: 12345678
+- Phone: 0903609753
+- TSMC Long Phone: 0919773536
+- TSMC Short Phone: 8790233
+- Group: Default Group
 
-Do not upload:
+The app automatically protects this admin account.
 
-```text
-node_modules
-dist
-.env
-```
+## Important note about Admin-created users
+
+With a frontend-only Supabase app, the admin can create and approve the user profile, assign groups, and assign roles. The user still needs to register once with the same email address to create their actual Supabase Auth password. The app then links that login to the existing profile by email.
+
+## v4.1.1 changes
+
+- Admin can add user profiles.
+- Admin can edit user details.
+- Admin can approve/reject/inactivate users.
+- Admin can assign multiple groups to users.
+- Admin can set role: User / Manager / Admin.
+- Admin can assign one managed group to a manager.
+- Admin can add/edit/archive/restore groups.
+- Protected Hassan Bailou admin cannot be removed, demoted, or deactivated.

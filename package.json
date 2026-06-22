@@ -10,12 +10,7 @@
     "react": "latest",
     "react-dom": "latest",
     "@supabase/supabase-js": "latest",
-    "lucide-react": "latest",
-    "qrcode.react": "latest",
-    "tesseract.js": "latest",
-    "date-fns": "latest",
-    "xlsx": "latest"
+    "lucide-react": "latest"
   },
-  "devDependencies": {},
-  "version": "3.6.0"
+  "devDependencies": {}
 }
