@@ -56,3 +56,10 @@ With a frontend-only Supabase app, the admin can create and approve the user pro
 - Admin can assign one managed group to a manager.
 - Admin can add/edit/archive/restore groups.
 - Protected Hassan Bailou admin cannot be removed, demoted, or deactivated.
+
+## v4.1.4 update
+- Restaurants are reorganized into Add Food Restaurant and Add Drink Store cards.
+- Restaurant entry fields unlock after selecting the restaurant/store type.
+- Category and item creation is available directly below each restaurant card.
+- Restaurant and category selections are kept after adding items for faster data entry.
+- Optional item properties were added. Run `supabase-v4.1.4-menu-options-migration.sql` to store them.

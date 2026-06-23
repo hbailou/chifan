@@ -87,7 +87,124 @@ function val(id){return document.getElementById(id)?.value||''}
 function checked(prefix){return [...document.querySelectorAll(`input[data-multi="${prefix}"]:checked`)].map(i=>i.value)}
 function Multi({groups,selected,prefix,onChange}){const [ids,setIds]=useState(selected||[]); useEffect(()=>setIds(selected||[]),[selected]); function toggle(id){const next=ids.includes(id)?ids.filter(x=>x!==id):[...ids,id]; setIds(next); onChange?.(next);} return <div className="multi">{groups.map(g=><label key={g.id}><input data-multi={prefix} type="checkbox" checked={ids.includes(g.id)} onChange={()=>toggle(g.id)} value={g.id}/> {g.name}</label>)}</div>}
 
-function Menus({tr,data,reload}){const [tab,setTab]=useState('restaurants'); const [r,setR]=useState({name:'',menu_type:'food',phone1:'',phone2:'',address:'',note:''}),[c,setC]=useState({restaurant_id:'',name:''}),[m,setM]=useState({restaurant_id:'',category_id:'',name:'',price:''}); async function addR(){if(!r.name)return; await supabase.from('restaurants').insert(r); setR({name:'',menu_type:'food',phone1:'',phone2:'',address:'',note:''}); reload()} async function addC(){if(!c.restaurant_id||!c.name)return; await supabase.from('menu_categories').insert(c); setC({restaurant_id:'',name:''}); reload()} async function addM(){if(!m.restaurant_id||!m.name)return; await supabase.from('meals').insert({...m,price:Number(m.price||0)}); setM({restaurant_id:'',category_id:'',name:'',price:''}); reload()} const tabs=[{id:'restaurants',label:tr.restaurant},{id:'categories',label:tr.category},{id:'meals',label:tr.meal},{id:'list',label:tr.menus}]; return <><Header title={tr.menus}/><SubNav items={tabs} active={tab} onChange={setTab}/>{tab==='restaurants'&&<Card><h2>{tr.restaurant}</h2><div className="formGrid"><input placeholder={tr.restaurant} value={r.name} onChange={e=>setR({...r,name:e.target.value})}/><select value={r.menu_type} onChange={e=>setR({...r,menu_type:e.target.value})}><option value="food">{tr.food}</option><option value="drink">{tr.drink}</option></select><input placeholder="Phone 1" value={r.phone1} onChange={e=>setR({...r,phone1:e.target.value})}/><input placeholder="Phone 2" value={r.phone2} onChange={e=>setR({...r,phone2:e.target.value})}/><input placeholder="Address" value={r.address} onChange={e=>setR({...r,address:e.target.value})}/></div><button className="primary small" onClick={addR}>{tr.add}</button></Card>}{tab==='categories'&&<Card><h2>{tr.category}</h2><div className="formGrid two"><select value={c.restaurant_id} onChange={e=>setC({...c,restaurant_id:e.target.value})}><option value="">{tr.restaurant}</option>{data.restaurants.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select><input placeholder={tr.category} value={c.name} onChange={e=>setC({...c,name:e.target.value})}/></div><button className="primary small" onClick={addC}>{tr.add}</button></Card>}{tab==='meals'&&<Card><h2>{tr.meal}</h2><div className="formGrid two"><select value={m.restaurant_id} onChange={e=>setM({...m,restaurant_id:e.target.value,category_id:''})}><option value="">{tr.restaurant}</option>{data.restaurants.map(x=><option key={x.id} value={x.id}>{x.name} · {x.menu_type}</option>)}</select><select value={m.category_id} onChange={e=>setM({...m,category_id:e.target.value})}><option value="">{tr.category}</option>{data.categories.filter(x=>x.restaurant_id===m.restaurant_id).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select><input placeholder={tr.meal} value={m.name} onChange={e=>setM({...m,name:e.target.value})}/><input placeholder={tr.price} value={m.price} onChange={e=>setM({...m,price:e.target.value})}/></div><button className="primary small" onClick={addM}>{tr.add}</button></Card>}{tab==='list'&&<Card><h2>{tr.menus}</h2>{data.restaurants.map(r=><div className="menuCard" key={r.id}><b>{r.name}</b> <span>{r.menu_type}</span><ul>{data.meals.filter(m=>m.restaurant_id===r.id).map(m=><li key={m.id}>{m.name} - {money(m.price)}</li>)}</ul></div>)}</Card>}</>}
+function Menus({tr,data,reload}){
+  const [tab,setTab]=useState('restaurants');
+  const tabs=[{id:'restaurants',label:tr.restaurant},{id:'categories',label:tr.category},{id:'meals',label:tr.meal},{id:'list',label:tr.menus}];
+  return <>
+    <Header title={tr.menus}/>
+    <SubNav items={tabs} active={tab} onChange={setTab}/>
+    {tab==='restaurants'&&<RestaurantWorkspace tr={tr} data={data} reload={reload}/>} 
+    {tab==='categories'&&<CategoryManager tr={tr} data={data} reload={reload}/>} 
+    {tab==='meals'&&<MealManager tr={tr} data={data} reload={reload}/>} 
+    {tab==='list'&&<MenuList tr={tr} data={data}/>} 
+  </>
+}
+
+function RestaurantWorkspace({tr,data,reload}){
+  return <div className="builderGrid">
+    <RestaurantBuilder kind="food" title="Add Food Restaurant" entityLabel="Food Restaurant" tr={tr} data={data} reload={reload}/>
+    <RestaurantBuilder kind="drink" title="Add Drink Store" entityLabel="Drink Store" tr={tr} data={data} reload={reload}/>
+  </div>
+}
+
+function RestaurantBuilder({kind,title,entityLabel,tr,data,reload}){
+  const stores=data.restaurants.filter(r=>r.menu_type===kind);
+  const [selectedType,setSelectedType]=useState('');
+  const [selectedRestaurant,setSelectedRestaurant]=useState('');
+  const [r,setR]=useState({name:'',phone1:'',phone2:'',address:''});
+  const [cat,setCat]=useState('');
+  const [selectedCategory,setSelectedCategory]=useState('');
+  const [meal,setMeal]=useState({name:'',price:'',sizes:'',temperature:'',ice_levels:[]});
+  const active=selectedType===kind;
+  const categories=data.categories.filter(c=>c.restaurant_id===selectedRestaurant);
+  async function addRestaurant(){
+    if(!active || !r.name) return;
+    const {data:created,error}=await supabase.from('restaurants').insert({name:r.name,menu_type:kind,phone1:r.phone1,phone2:r.phone2,address:r.address}).select('*').single();
+    if(!error && created){ setSelectedRestaurant(created.id); setR({name:'',phone1:'',phone2:'',address:''}); await reload(); }
+  }
+  async function addCategory(){
+    if(!selectedRestaurant || !cat) return;
+    const {data:created,error}=await supabase.from('menu_categories').insert({restaurant_id:selectedRestaurant,name:cat}).select('*').single();
+    if(!error && created){ setSelectedCategory(created.id); setCat(''); await reload(); }
+  }
+  async function addMeal(){
+    if(!selectedRestaurant || !selectedCategory || !meal.name) return;
+    const options={
+      sizes: meal.sizes || '',
+      temperature: meal.temperature || '',
+      ice_levels: meal.ice_levels || []
+    };
+    const payload={restaurant_id:selectedRestaurant,category_id:selectedCategory,name:meal.name,price:Number(meal.price||0),options};
+    const res=await supabase.from('meals').insert(payload);
+    if(res.error){
+      // Backward compatibility if the options column has not been added yet.
+      await supabase.from('meals').insert({restaurant_id:selectedRestaurant,category_id:selectedCategory,name:meal.name,price:Number(meal.price||0)});
+    }
+    setMeal({name:'',price:'',sizes:meal.sizes,temperature:meal.temperature,ice_levels:meal.ice_levels});
+    await reload();
+  }
+  function toggleIce(v){ const curr=meal.ice_levels||[]; setMeal({...meal,ice_levels:curr.includes(v)?curr.filter(x=>x!==v):[...curr,v]}); }
+  return <Card cls="restaurantBuilder">
+    <div className="builderHead"><div><h2>{title}</h2><p className="hint">Select the type first. The entry fields unlock after the type is selected.</p></div></div>
+    <div className="verticalForm">
+      <label>Restaurant type</label>
+      <select value={selectedType} onChange={e=>setSelectedType(e.target.value)}>
+        <option value="">Select type</option>
+        <option value={kind}>{entityLabel}</option>
+      </select>
+      <input disabled={!active} placeholder="Restaurant Name" value={r.name} onChange={e=>setR({...r,name:e.target.value})}/>
+      <input disabled={!active} placeholder="Phone 1" value={r.phone1} onChange={e=>setR({...r,phone1:e.target.value})}/>
+      <input disabled={!active} placeholder="Phone 2" value={r.phone2} onChange={e=>setR({...r,phone2:e.target.value})}/>
+      <input disabled={!active} placeholder="Address" value={r.address} onChange={e=>setR({...r,address:e.target.value})}/>
+      <button className="primary small fit" disabled={!active || !r.name} onClick={addRestaurant}>{kind==='food'?'Add Food Restaurant':'Add Drink Store'}</button>
+    </div>
+
+    <div className="builderDivider"></div>
+    <h3>Build menu</h3>
+    <p className="hint">The selected restaurant and category stay selected while you add several items.</p>
+    <div className="verticalForm compact">
+      <label>{kind==='food'?'Food restaurant':'Drink store'}</label>
+      <select value={selectedRestaurant} onChange={e=>{setSelectedRestaurant(e.target.value); setSelectedCategory('')}}>
+        <option value="">Select {kind==='food'?'food restaurant':'drink store'}</option>
+        {stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
+      </select>
+      <div className="inlineEntry">
+        <input disabled={!selectedRestaurant} placeholder="Add category" value={cat} onChange={e=>setCat(e.target.value)}/>
+        <button className="ghost compactBtn" disabled={!selectedRestaurant || !cat} onClick={addCategory}>Add category</button>
+      </div>
+      <label>Category</label>
+      <select disabled={!selectedRestaurant} value={selectedCategory} onChange={e=>setSelectedCategory(e.target.value)}>
+        <option value="">Select category</option>
+        {categories.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
+      </select>
+      <input disabled={!selectedRestaurant || !selectedCategory} placeholder={kind==='food'?'Meal name':'Drink name'} value={meal.name} onChange={e=>setMeal({...meal,name:e.target.value})}/>
+      <input disabled={!selectedRestaurant || !selectedCategory} placeholder={tr.price} value={meal.price} onChange={e=>setMeal({...meal,price:e.target.value})}/>
+      <input disabled={!selectedRestaurant || !selectedCategory} placeholder="Size / variation, e.g. small, regular, large" value={meal.sizes} onChange={e=>setMeal({...meal,sizes:e.target.value})}/>
+      {kind==='food' && <select disabled={!selectedRestaurant || !selectedCategory} value={meal.temperature} onChange={e=>setMeal({...meal,temperature:e.target.value})}>
+        <option value="">Temperature / property</option><option value="hot">Hot</option><option value="cold">Cold</option><option value="both">Hot or cold</option>
+      </select>}
+      {kind==='drink' && <div className="choiceGroup disabledAware"><span>Ice level options</span>{['Hot','Warm','No ice','10%','30%','50%','70%','100%'].map(v=><label key={v}><input disabled={!selectedRestaurant || !selectedCategory} type="checkbox" checked={(meal.ice_levels||[]).includes(v)} onChange={()=>toggleIce(v)}/> {v}</label>)}</div>}
+      <button className="primary small fit" disabled={!selectedRestaurant || !selectedCategory || !meal.name} onClick={addMeal}>{kind==='food'?'Add Food Item':'Add Drink Item'}</button>
+    </div>
+  </Card>
+}
+
+function CategoryManager({tr,data,reload}){
+  const [c,setC]=useState({restaurant_id:'',name:''});
+  async function addC(){if(!c.restaurant_id||!c.name)return; await supabase.from('menu_categories').insert(c); setC({...c,name:''}); reload()}
+  return <Card><h2>{tr.category}</h2><p className="hint">Selection is kept after adding, so you can add several categories to the same restaurant.</p><div className="formGrid two"><select value={c.restaurant_id} onChange={e=>setC({...c,restaurant_id:e.target.value})}><option value="">{tr.restaurant}</option>{data.restaurants.map(x=><option key={x.id} value={x.id}>{x.name} · {x.menu_type}</option>)}</select><input placeholder={tr.category} value={c.name} onChange={e=>setC({...c,name:e.target.value})}/></div><button className="primary small" onClick={addC}>{tr.add}</button></Card>
+}
+
+function MealManager({tr,data,reload}){
+  const [m,setM]=useState({restaurant_id:'',category_id:'',name:'',price:''});
+  async function addM(){if(!m.restaurant_id||!m.name)return; await supabase.from('meals').insert({...m,price:Number(m.price||0)}); setM({...m,name:'',price:''}); reload()}
+  return <Card><h2>{tr.meal}</h2><p className="hint">Restaurant and category stay selected after adding an item.</p><div className="formGrid two"><select value={m.restaurant_id} onChange={e=>setM({...m,restaurant_id:e.target.value,category_id:''})}><option value="">{tr.restaurant}</option>{data.restaurants.map(x=><option key={x.id} value={x.id}>{x.name} · {x.menu_type}</option>)}</select><select value={m.category_id} onChange={e=>setM({...m,category_id:e.target.value})}><option value="">{tr.category}</option>{data.categories.filter(x=>x.restaurant_id===m.restaurant_id).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select><input placeholder={tr.meal} value={m.name} onChange={e=>setM({...m,name:e.target.value})}/><input placeholder={tr.price} value={m.price} onChange={e=>setM({...m,price:e.target.value})}/></div><button className="primary small" onClick={addM}>{tr.add}</button></Card>
+}
+
+function MenuList({tr,data}){
+  return <Card><h2>{tr.menus}</h2>{data.restaurants.map(r=><div className="menuCard" key={r.id}><b>{r.name}</b> <span>{r.menu_type}</span>{data.categories.filter(c=>c.restaurant_id===r.id).map(c=><div key={c.id} className="categoryBlock"><strong>{c.name}</strong><ul>{data.meals.filter(m=>m.category_id===c.id).map(m=><li key={m.id}>{m.name} - {money(m.price)} {m.options?.sizes?` · ${m.options.sizes}`:''}</li>)}</ul></div>)}</div>)}</Card>
+}
+
 function ManagerOrders({tr,profile,data,reload}){const [tab,setTab]=useState('setup'); const [f,setF]=useState({date:today(),group_id:profile.managed_group_id||'',food_restaurant_id:'',drink_restaurant_id:'',food_active:true,drink_active:false}); const foodStores=data.restaurants.filter(r=>r.menu_type==='food'); const drinkStores=data.restaurants.filter(r=>r.menu_type==='drink'); async function open(){if(!f.group_id)return; await supabase.from('daily_orders').upsert({...f,food_restaurant_id:f.food_active?f.food_restaurant_id:null,drink_restaurant_id:f.drink_active?f.drink_restaurant_id:null,opened_by:profile.id,status:'open'},{onConflict:'order_date,group_id'}); reload()} async function confirmOrder(o){const members=data.userGroups.filter(ug=>ug.group_id===o.group_id).map(ug=>ug.user_profile_id); for(const uid of members){ if(o.food_active) await supabase.from('order_items').upsert({daily_order_id:o.id,user_profile_id:uid,item_type:'food',status:'no_order'},{onConflict:'daily_order_id,user_profile_id,item_type',ignoreDuplicates:true}); if(o.drink_active) await supabase.from('order_items').upsert({daily_order_id:o.id,user_profile_id:uid,item_type:'drink',status:'no_order'},{onConflict:'daily_order_id,user_profile_id,item_type',ignoreDuplicates:true}); } await supabase.from('daily_orders').update({status:'confirmed',confirmed_by:profile.id}).eq('id',o.id); reload();} const tabs=[{id:'setup',label:tr.openOrder},{id:'summary',label:tr.summary}]; return <><Header title={tr.orders}/><SubNav items={tabs} active={tab} onChange={setTab}/>{tab==='setup'&&<Card cls="orderCard"><div className="moduleHeader"><div><h2>{tr.openOrder}</h2><p className="hint">Select group, then activate food and/or drink ordering for today.</p></div><button className="primary small" onClick={open}>{tr.save}</button></div><div className="orderMeta"><input type="date" value={f.date} onChange={e=>setF({...f,date:e.target.value})}/><select value={f.group_id} onChange={e=>setF({...f,group_id:e.target.value})}><option value="">{tr.groups}</option>{data.groups.filter(g=>g.is_active).map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></div><div className="orderOptions"><div className={'optionPanel '+(!f.food_active?'disabled':'')}><div className="optionTop"><SoftToggle checked={f.food_active} label={`${tr.food}: ${f.food_active?'Yes':'No'}`} onChange={v=>setF({...f,food_active:v,food_restaurant_id:v?f.food_restaurant_id:''})}/><strong>{tr.food}</strong></div><label>Pick Food Restaurant</label><select disabled={!f.food_active} value={f.food_restaurant_id} onChange={e=>setF({...f,food_restaurant_id:e.target.value})}><option value="">{tr.restaurant}</option>{foodStores.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>{foodStores.length===0&&<p className="hint">No food restaurant available. Add one in Menus → Restaurant.</p>}</div><div className={'optionPanel '+(!f.drink_active?'disabled':'')}><div className="optionTop"><SoftToggle checked={f.drink_active} label={`${tr.drink}: ${f.drink_active?'Yes':'No'}`} onChange={v=>setF({...f,drink_active:v,drink_restaurant_id:v?f.drink_restaurant_id:''})}/><strong>{tr.drink}</strong></div><label>Pick Drink Store</label><select disabled={!f.drink_active} value={f.drink_restaurant_id} onChange={e=>setF({...f,drink_restaurant_id:e.target.value})}><option value="">{tr.restaurant}</option>{drinkStores.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>{drinkStores.length===0&&<p className="hint">No drink store available. Add one in Menus → Restaurant and set type to Drink.</p>}</div></div></Card>}{tab==='summary'&&<Card><h2>{tr.summary}</h2>{data.orders.map(o=><OrderSummary key={o.id} o={o} data={data} tr={tr} confirmOrder={confirmOrder}/>)}</Card>}</>}
 function OrderSummary({o,data,tr,confirmOrder}){const group=data.groups.find(g=>g.id===o.group_id)?.name; const items=data.items.filter(i=>i.daily_order_id===o.id); const foodR=data.restaurants.find(r=>r.id===o.food_restaurant_id)?.name; const drinkR=data.restaurants.find(r=>r.id===o.drink_restaurant_id)?.name; return <div className="menuCard"><b>{o.order_date} · {group} · {o.status}</b><p>{tr.food}: {foodR||'-'} | {tr.drink}: {drinkR||'-'}</p><table><tbody>{items.map(i=><tr key={i.id}><td>{data.profiles.find(p=>p.id===i.user_profile_id)?.name}</td><td>{i.item_type}</td><td>{data.meals.find(m=>m.id===i.meal_id)?.name||i.status}</td><td>{i.paid?tr.paid:tr.unpaid}</td></tr>)}</tbody></table>{o.status!=='confirmed'&&<button className="primary small" onClick={()=>confirmOrder(o)}>{tr.confirm}</button>}</div>}
 function UserOrder({tr,profile,data,reload}){const myGroupIds=data.userGroups.filter(ug=>ug.user_profile_id===profile.id).map(ug=>ug.group_id); const [gid,setGid]=useState(myGroupIds[0]||''); const order=data.orders.find(o=>o.order_date===today()&&o.group_id===gid&&o.status==='open'); async function submit(type,mealId){await supabase.from('order_items').upsert({daily_order_id:order.id,user_profile_id:profile.id,item_type:type,meal_id:mealId,status:'ordered'},{onConflict:'daily_order_id,user_profile_id,item_type'}); reload();} return <><Header title={tr.myOrder} sub={profile.name}/><Card><select value={gid} onChange={e=>setGid(e.target.value)}>{myGroupIds.map(id=><option key={id} value={id}>{data.groups.find(g=>g.id===id)?.name}</option>)}</select>{!order?<p>{tr.noActive}</p>:<div className="grid2">{order.food_active&&<Picker title={tr.food} rid={order.food_restaurant_id} data={data} onPick={id=>submit('food',id)}/>} {order.drink_active&&<Picker title={tr.drink} rid={order.drink_restaurant_id} data={data} onPick={id=>submit('drink',id)}/>}</div>}</Card></>}
