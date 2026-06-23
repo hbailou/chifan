@@ -1,4 +1,4 @@
-# Chi-Fan v4.1.1 Admin Management
+# Chi-Fan v4.1.2 Supabase-style UI
 
 This package is a clean v4 build with admin user/group management.
 
@@ -46,7 +46,7 @@ The app automatically protects this admin account.
 
 With a frontend-only Supabase app, the admin can create and approve the user profile, assign groups, and assign roles. The user still needs to register once with the same email address to create their actual Supabase Auth password. The app then links that login to the existing profile by email.
 
-## v4.1.1 changes
+## v4.1.2 changes
 
 - Admin can add user profiles.
 - Admin can edit user details.
