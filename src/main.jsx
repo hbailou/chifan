@@ -88,106 +88,167 @@ function checked(prefix){return [...document.querySelectorAll(`input[data-multi=
 function Multi({groups,selected,prefix,onChange}){const [ids,setIds]=useState(selected||[]); useEffect(()=>setIds(selected||[]),[selected]); function toggle(id){const next=ids.includes(id)?ids.filter(x=>x!==id):[...ids,id]; setIds(next); onChange?.(next);} return <div className="multi">{groups.map(g=><label key={g.id}><input data-multi={prefix} type="checkbox" checked={ids.includes(g.id)} onChange={()=>toggle(g.id)} value={g.id}/> {g.name}</label>)}</div>}
 
 function Menus({tr,data,reload}){
-  const [tab,setTab]=useState('restaurants');
-  const tabs=[{id:'restaurants',label:tr.restaurant},{id:'categories',label:tr.category},{id:'meals',label:tr.meal},{id:'list',label:tr.menus}];
+  const [tab,setTab]=useState('build');
+  const tabs=[{id:'build',label:'Build Menu'},{id:'list',label:'Menu List'}];
   return <>
     <Header title={tr.menus}/>
     <SubNav items={tabs} active={tab} onChange={setTab}/>
-    {tab==='restaurants'&&<RestaurantWorkspace tr={tr} data={data} reload={reload}/>} 
-    {tab==='categories'&&<CategoryManager tr={tr} data={data} reload={reload}/>} 
-    {tab==='meals'&&<MealManager tr={tr} data={data} reload={reload}/>} 
+    {tab==='build'&&<BuildMenu tr={tr} data={data} reload={reload}/>} 
     {tab==='list'&&<MenuList tr={tr} data={data}/>} 
   </>
 }
 
-function RestaurantWorkspace({tr,data,reload}){
-  return <div className="builderGrid">
-    <RestaurantBuilder kind="food" title="Add Food Restaurant" entityLabel="Food Restaurant" tr={tr} data={data} reload={reload}/>
-    <RestaurantBuilder kind="drink" title="Add Drink Store" entityLabel="Drink Store" tr={tr} data={data} reload={reload}/>
+function BuildMenu({tr,data,reload}){
+  const [kind,setKind]=useState('food');
+  return <div className="buildMenuShell">
+    <Card cls="buildMenuCard">
+      <div className="moduleHeader compactHeader">
+        <div>
+          <h2>Build Menu</h2>
+          <p className="hint">Create a food restaurant or drink store, then add categories, items and selectable options in one flow.</p>
+        </div>
+        <div className="pillSwitch">
+          <button className={kind==='food'?'active':''} onClick={()=>setKind('food')}>Food Menu</button>
+          <button className={kind==='drink'?'active':''} onClick={()=>setKind('drink')}>Drink Menu</button>
+        </div>
+      </div>
+      <SmartMenuBuilder key={kind} kind={kind} tr={tr} reload={reload}/>
+    </Card>
+    <MenuPreview title="Current Menu Preview" draftMode/>
   </div>
 }
 
-function RestaurantBuilder({kind,title,entityLabel,tr,data,reload}){
-  const stores=data.restaurants.filter(r=>r.menu_type===kind);
-  const [selectedType,setSelectedType]=useState('');
-  const [selectedRestaurant,setSelectedRestaurant]=useState('');
-  const [r,setR]=useState({name:'',phone1:'',phone2:'',address:''});
-  const [cat,setCat]=useState('');
-  const [selectedCategory,setSelectedCategory]=useState('');
-  const [meal,setMeal]=useState({name:'',price:'',sizes:'',temperature:'',ice_levels:[]});
-  const active=selectedType===kind;
-  const categories=data.categories.filter(c=>c.restaurant_id===selectedRestaurant);
-  async function addRestaurant(){
-    if(!active || !r.name) return;
-    const {data:created,error}=await supabase.from('restaurants').insert({name:r.name,menu_type:kind,phone1:r.phone1,phone2:r.phone2,address:r.address}).select('*').single();
-    if(!error && created){ setSelectedRestaurant(created.id); setR({name:'',phone1:'',phone2:'',address:''}); await reload(); }
-  }
-  async function addCategory(){
-    if(!selectedRestaurant || !cat) return;
-    const {data:created,error}=await supabase.from('menu_categories').insert({restaurant_id:selectedRestaurant,name:cat}).select('*').single();
-    if(!error && created){ setSelectedCategory(created.id); setCat(''); await reload(); }
-  }
-  async function addMeal(){
-    if(!selectedRestaurant || !selectedCategory || !meal.name) return;
-    const options={
-      sizes: meal.sizes || '',
-      temperature: meal.temperature || '',
-      ice_levels: meal.ice_levels || []
-    };
-    const payload={restaurant_id:selectedRestaurant,category_id:selectedCategory,name:meal.name,price:Number(meal.price||0),options};
-    const res=await supabase.from('meals').insert(payload);
-    if(res.error){
-      // Backward compatibility if the options column has not been added yet.
-      await supabase.from('meals').insert({restaurant_id:selectedRestaurant,category_id:selectedCategory,name:meal.name,price:Number(meal.price||0)});
-    }
-    setMeal({name:'',price:'',sizes:meal.sizes,temperature:meal.temperature,ice_levels:meal.ice_levels});
-    await reload();
-  }
-  function toggleIce(v){ const curr=meal.ice_levels||[]; setMeal({...meal,ice_levels:curr.includes(v)?curr.filter(x=>x!==v):[...curr,v]}); }
-  return <Card cls="restaurantBuilder">
-    <div className="builderHead"><div><h2>{title}</h2><p className="hint">Select the type first. The entry fields unlock after the type is selected.</p></div></div>
-    <div className="verticalForm">
-      <label>Restaurant type</label>
-      <select value={selectedType} onChange={e=>setSelectedType(e.target.value)}>
-        <option value="">Select type</option>
-        <option value={kind}>{entityLabel}</option>
-      </select>
-      <input disabled={!active} placeholder="Restaurant Name" value={r.name} onChange={e=>setR({...r,name:e.target.value})}/>
-      <input disabled={!active} placeholder="Phone 1" value={r.phone1} onChange={e=>setR({...r,phone1:e.target.value})}/>
-      <input disabled={!active} placeholder="Phone 2" value={r.phone2} onChange={e=>setR({...r,phone2:e.target.value})}/>
-      <input disabled={!active} placeholder="Address" value={r.address} onChange={e=>setR({...r,address:e.target.value})}/>
-      <button className="primary small fit" disabled={!active || !r.name} onClick={addRestaurant}>{kind==='food'?'Add Food Restaurant':'Add Drink Store'}</button>
-    </div>
+function emptyItem(){return {name:'',price:'',optionName:'',optionItems:''};}
+function emptyCategory(){return {name:'',items:[emptyItem()]};}
 
-    <div className="builderDivider"></div>
-    <h3>Build menu</h3>
-    <p className="hint">The selected restaurant and category stay selected while you add several items.</p>
-    <div className="verticalForm compact">
-      <label>{kind==='food'?'Food restaurant':'Drink store'}</label>
-      <select value={selectedRestaurant} onChange={e=>{setSelectedRestaurant(e.target.value); setSelectedCategory('')}}>
-        <option value="">Select {kind==='food'?'food restaurant':'drink store'}</option>
-        {stores.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
-      </select>
-      <div className="inlineEntry">
-        <input disabled={!selectedRestaurant} placeholder="Add category" value={cat} onChange={e=>setCat(e.target.value)}/>
-        <button className="ghost compactBtn" disabled={!selectedRestaurant || !cat} onClick={addCategory}>Add category</button>
-      </div>
-      <label>Category</label>
-      <select disabled={!selectedRestaurant} value={selectedCategory} onChange={e=>setSelectedCategory(e.target.value)}>
-        <option value="">Select category</option>
-        {categories.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
-      </select>
-      <input disabled={!selectedRestaurant || !selectedCategory} placeholder={kind==='food'?'Meal name':'Drink name'} value={meal.name} onChange={e=>setMeal({...meal,name:e.target.value})}/>
-      <input disabled={!selectedRestaurant || !selectedCategory} placeholder={tr.price} value={meal.price} onChange={e=>setMeal({...meal,price:e.target.value})}/>
-      <input disabled={!selectedRestaurant || !selectedCategory} placeholder="Size / variation, e.g. small, regular, large" value={meal.sizes} onChange={e=>setMeal({...meal,sizes:e.target.value})}/>
-      {kind==='food' && <select disabled={!selectedRestaurant || !selectedCategory} value={meal.temperature} onChange={e=>setMeal({...meal,temperature:e.target.value})}>
-        <option value="">Temperature / property</option><option value="hot">Hot</option><option value="cold">Cold</option><option value="both">Hot or cold</option>
-      </select>}
-      {kind==='drink' && <div className="choiceGroup disabledAware"><span>Ice level options</span>{['Hot','Warm','No ice','10%','30%','50%','70%','100%'].map(v=><label key={v}><input disabled={!selectedRestaurant || !selectedCategory} type="checkbox" checked={(meal.ice_levels||[]).includes(v)} onChange={()=>toggleIce(v)}/> {v}</label>)}</div>}
-      <button className="primary small fit" disabled={!selectedRestaurant || !selectedCategory || !meal.name} onClick={addMeal}>{kind==='food'?'Add Food Item':'Add Drink Item'}</button>
+function SmartMenuBuilder({kind,tr,reload}){
+  const [restaurant,setRestaurant]=useState({name:'',phones:[''],address:''});
+  const [useCategories,setUseCategories]=useState(true);
+  const [categories,setCategories]=useState([emptyCategory()]);
+  const [items,setItems]=useState([emptyItem()]);
+  const [saving,setSaving]=useState(false);
+  const isDrink=kind==='drink';
+  const title=isDrink?'Add Drink Store':'Add Food Restaurant';
+  const nameLabel=isDrink?'Store Name':'Restaurant Name';
+  function setPhone(i,val){setRestaurant(r=>({...r,phones:r.phones.map((p,idx)=>idx===i?val:p)}));}
+  function addPhone(){setRestaurant(r=>({...r,phones:[...r.phones,'']}));}
+  function updateCat(i,patch){setCategories(cats=>cats.map((c,idx)=>idx===i?{...c,...patch}:c));}
+  function addCat(){setUseCategories(true);setCategories(c=>[...c,emptyCategory()]);}
+  function updateCatItem(ci,ii,patch){setCategories(cats=>cats.map((c,idx)=>idx!==ci?c:{...c,items:c.items.map((it,j)=>j===ii?{...it,...patch}:it)}));}
+  function addCatItem(ci){setCategories(cats=>cats.map((c,idx)=>idx===ci?{...c,items:[...c.items,emptyItem()]}:c));}
+  function updateItem(i,patch){setItems(list=>list.map((it,idx)=>idx===i?{...it,...patch}:it));}
+  function addItem(){setItems(list=>[...list,emptyItem()]);}
+  function cleanOptions(item){
+    const customName=(item.optionName||'').trim();
+    const values=(item.optionItems||'').split(',').map(x=>x.trim()).filter(Boolean);
+    const optionPack={custom_options:customName&&values.length?[{name:customName,values}]:[]};
+    if(isDrink){optionPack.ice_levels=['Hot','Warm','No ice','10%','30%','50%','70%','100%'];}
+    return optionPack;
+  }
+  async function confirmMenu(){
+    if(!restaurant.name.trim()) return alert('Restaurant / store name is required.');
+    setSaving(true);
+    try{
+      const {data:created,error}=await supabase.from('restaurants').insert({
+        name:restaurant.name.trim(), menu_type:kind,
+        phone1:restaurant.phones[0]||'', phone2:restaurant.phones[1]||'',
+        address:restaurant.address||''
+      }).select('*').single();
+      if(error) throw error;
+      if(useCategories){
+        for(const cat of categories){
+          const validItems=cat.items.filter(it=>it.name.trim());
+          if(!cat.name.trim() && validItems.length===0) continue;
+          let categoryId=null;
+          if(cat.name.trim()){
+            const {data:c,error:ce}=await supabase.from('menu_categories').insert({restaurant_id:created.id,name:cat.name.trim()}).select('*').single();
+            if(ce) throw ce;
+            categoryId=c.id;
+          }
+          for(const it of validItems){
+            await insertMeal(created.id,categoryId,it,cleanOptions(it));
+          }
+        }
+      }else{
+        for(const it of items.filter(it=>it.name.trim())) await insertMeal(created.id,null,it,cleanOptions(it));
+      }
+      setRestaurant({name:'',phones:[''],address:''});
+      setCategories([emptyCategory()]); setItems([emptyItem()]); setUseCategories(true);
+      await reload();
+    }catch(e){console.error(e); alert(e.message||'Could not save menu.');}
+    setSaving(false);
+  }
+  async function insertMeal(restaurant_id,category_id,it,options){
+    const payload={restaurant_id,category_id,name:it.name.trim(),price:Number(it.price||0),options};
+    const res=await supabase.from('meals').insert(payload);
+    if(res.error){ await supabase.from('meals').insert({restaurant_id,category_id,name:it.name.trim(),price:Number(it.price||0)}); }
+  }
+  const previewCats=useCategories?categories:[{name:'No category',items}];
+  return <div className="builderTwoCol">
+    <div className="builderFormStack">
+      <section className="miniPanel">
+        <h3>{title}</h3>
+        <p className="hint">The form below is active for the selected type: <b>{isDrink?'Drink Store':'Food Restaurant'}</b>.</p>
+        <input placeholder={`${nameLabel} *`} value={restaurant.name} onChange={e=>setRestaurant({...restaurant,name:e.target.value})}/>
+        {restaurant.phones.map((p,i)=><input key={i} placeholder={`Phone ${i+1}`} value={p} onChange={e=>setPhone(i,e.target.value)}/>) }
+        <button className="textAction" type="button" onClick={addPhone}>+ add phone number</button>
+        <input placeholder="Address" value={restaurant.address} onChange={e=>setRestaurant({...restaurant,address:e.target.value})}/>
+      </section>
+
+      <section className="miniPanel">
+        <div className="sectionLine"><h3>Menu Items</h3><button className="textAction" type="button" onClick={()=>setUseCategories(!useCategories)}>{useCategories?'Use no category':'Add category'}</button></div>
+        <p className="hint">Add categories when the menu is organized by sections. Otherwise, enter the items directly.</p>
+        {useCategories ? <div className="categoryEditorList">
+          {categories.map((cat,ci)=><div className="categoryEditor" key={ci}>
+            <input className="categoryTitleInput" placeholder="Category name" value={cat.name} onChange={e=>updateCat(ci,{name:e.target.value})}/>
+            {cat.items.map((it,ii)=><ItemEditor key={ii} item={it} kind={kind} onChange={patch=>updateCatItem(ci,ii,patch)}/>) }
+            <button className="textAction" type="button" onClick={()=>addCatItem(ci)}>+ add item to this category</button>
+          </div>)}
+          <button className="textAction" type="button" onClick={addCat}>+ add another category</button>
+        </div> : <div className="categoryEditorList">
+          {items.map((it,i)=><ItemEditor key={i} item={it} kind={kind} onChange={patch=>updateItem(i,patch)}/>) }
+          <button className="textAction" type="button" onClick={addItem}>+ add item</button>
+        </div>}
+      </section>
+      <button className="primary fit" onClick={confirmMenu} disabled={saving}>{saving?'Saving...':'Confirm and add to Menu'}</button>
     </div>
-  </Card>
+    <MenuDraftPreview restaurant={restaurant} kind={kind} categories={previewCats}/>
+  </div>
 }
+
+function ItemEditor({item,kind,onChange}){
+  return <div className="itemEditor">
+    <input placeholder={kind==='drink'?'Drink item name':'Food item name'} value={item.name} onChange={e=>onChange({name:e.target.value})}/>
+    <input placeholder="Price" value={item.price} onChange={e=>onChange({price:e.target.value})}/>
+    <details className="optionDetails">
+      <summary>+ item options</summary>
+      <div className="optionGrid">
+        <input placeholder="Option name, e.g. Size, Ice, Spice" value={item.optionName} onChange={e=>onChange({optionName:e.target.value})}/>
+        <input placeholder="Option values separated by comma, e.g. Small, Regular, Large" value={item.optionItems} onChange={e=>onChange({optionItems:e.target.value})}/>
+      </div>
+    </details>
+  </div>
+}
+
+function MenuDraftPreview({restaurant,kind,categories}){
+  return <aside className="draftPreview">
+    <h3>Overview</h3>
+    <div className="draftCard">
+      <div className="draftTitle"><b>{restaurant.name||'New menu'}</b><span>{kind}</span></div>
+      <p className="hint">{restaurant.phones.filter(Boolean).join(' · ') || 'No phone yet'}{restaurant.address?` · ${restaurant.address}`:''}</p>
+      {categories.map((cat,i)=><div key={i} className="previewCat">
+        <strong>{cat.name||'No category'}</strong>
+        <ul>{cat.items.filter(x=>x.name).map((it,j)=><li key={j}>{it.name} {it.price?`- ${money(it.price)}`:''}{it.optionName?` · ${it.optionName}: ${it.optionItems}`:''}</li>)}</ul>
+      </div>)}
+    </div>
+  </aside>
+}
+
+function RestaurantWorkspace({tr,data,reload}){
+  return <BuildMenu tr={tr} data={data} reload={reload}/>
+}
+
+function MenuPreview(){return null}
 
 function CategoryManager({tr,data,reload}){
   const [c,setC]=useState({restaurant_id:'',name:''});
@@ -202,8 +263,21 @@ function MealManager({tr,data,reload}){
 }
 
 function MenuList({tr,data}){
-  return <Card><h2>{tr.menus}</h2>{data.restaurants.map(r=><div className="menuCard" key={r.id}><b>{r.name}</b> <span>{r.menu_type}</span>{data.categories.filter(c=>c.restaurant_id===r.id).map(c=><div key={c.id} className="categoryBlock"><strong>{c.name}</strong><ul>{data.meals.filter(m=>m.category_id===c.id).map(m=><li key={m.id}>{m.name} - {money(m.price)} {m.options?.sizes?` · ${m.options.sizes}`:''}</li>)}</ul></div>)}</div>)}</Card>
+  const [filter,setFilter]=useState('all');
+  const visible=data.restaurants.filter(r=>filter==='all'||r.menu_type===filter);
+  return <Card cls="menuListPage"><div className="moduleHeader compactHeader"><div><h2>Menu List</h2><p className="hint">All saved food restaurants and drink stores. Click a card visually by scanning its categories and items.</p></div><select className="filterSelect" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All menus</option><option value="food">Food menus</option><option value="drink">Drink menus</option></select></div><div className="menuCardGrid">{visible.map(r=><RestaurantMenuCard key={r.id} restaurant={r} data={data}/>)}</div>{visible.length===0&&<p className="hint">No menus yet. Build one from the Build Menu tab.</p>}</Card>
 }
+
+function RestaurantMenuCard({restaurant,data}){
+  const categories=data.categories.filter(c=>c.restaurant_id===restaurant.id);
+  const uncategorized=data.meals.filter(m=>m.restaurant_id===restaurant.id && !m.category_id);
+  return <article className="restaurantMenuCard">
+    <div className="restaurantMenuHead"><div><b>{restaurant.name}</b><p>{restaurant.phone1||''}{restaurant.phone2?` · ${restaurant.phone2}`:''}{restaurant.address?` · ${restaurant.address}`:''}</p></div><span>{restaurant.menu_type}</span></div>
+    {uncategorized.length>0&&<div className="innerCategory"><strong>No category</strong><ItemList items={uncategorized}/></div>}
+    {categories.map(c=><div key={c.id} className="innerCategory"><strong>{c.name}</strong><ItemList items={data.meals.filter(m=>m.category_id===c.id)}/></div>)}
+  </article>
+}
+function ItemList({items}){return <ul className="cleanItemList">{items.map(m=><li key={m.id}><span>{m.name}</span><em>{money(m.price)}</em>{m.options?.custom_options?.length>0&&<small>{m.options.custom_options.map(o=>`${o.name}: ${o.values.join(', ')}`).join(' · ')}</small>}</li>)}</ul>}
 
 function ManagerOrders({tr,profile,data,reload}){const [tab,setTab]=useState('setup'); const [f,setF]=useState({date:today(),group_id:profile.managed_group_id||'',food_restaurant_id:'',drink_restaurant_id:'',food_active:true,drink_active:false}); const foodStores=data.restaurants.filter(r=>r.menu_type==='food'); const drinkStores=data.restaurants.filter(r=>r.menu_type==='drink'); async function open(){if(!f.group_id)return; await supabase.from('daily_orders').upsert({...f,food_restaurant_id:f.food_active?f.food_restaurant_id:null,drink_restaurant_id:f.drink_active?f.drink_restaurant_id:null,opened_by:profile.id,status:'open'},{onConflict:'order_date,group_id'}); reload()} async function confirmOrder(o){const members=data.userGroups.filter(ug=>ug.group_id===o.group_id).map(ug=>ug.user_profile_id); for(const uid of members){ if(o.food_active) await supabase.from('order_items').upsert({daily_order_id:o.id,user_profile_id:uid,item_type:'food',status:'no_order'},{onConflict:'daily_order_id,user_profile_id,item_type',ignoreDuplicates:true}); if(o.drink_active) await supabase.from('order_items').upsert({daily_order_id:o.id,user_profile_id:uid,item_type:'drink',status:'no_order'},{onConflict:'daily_order_id,user_profile_id,item_type',ignoreDuplicates:true}); } await supabase.from('daily_orders').update({status:'confirmed',confirmed_by:profile.id}).eq('id',o.id); reload();} const tabs=[{id:'setup',label:tr.openOrder},{id:'summary',label:tr.summary}]; return <><Header title={tr.orders}/><SubNav items={tabs} active={tab} onChange={setTab}/>{tab==='setup'&&<Card cls="orderCard"><div className="moduleHeader"><div><h2>{tr.openOrder}</h2><p className="hint">Select group, then activate food and/or drink ordering for today.</p></div><button className="primary small" onClick={open}>{tr.save}</button></div><div className="orderMeta"><input type="date" value={f.date} onChange={e=>setF({...f,date:e.target.value})}/><select value={f.group_id} onChange={e=>setF({...f,group_id:e.target.value})}><option value="">{tr.groups}</option>{data.groups.filter(g=>g.is_active).map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></div><div className="orderOptions"><div className={'optionPanel '+(!f.food_active?'disabled':'')}><div className="optionTop"><SoftToggle checked={f.food_active} label={`${tr.food}: ${f.food_active?'Yes':'No'}`} onChange={v=>setF({...f,food_active:v,food_restaurant_id:v?f.food_restaurant_id:''})}/><strong>{tr.food}</strong></div><label>Pick Food Restaurant</label><select disabled={!f.food_active} value={f.food_restaurant_id} onChange={e=>setF({...f,food_restaurant_id:e.target.value})}><option value="">{tr.restaurant}</option>{foodStores.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>{foodStores.length===0&&<p className="hint">No food restaurant available. Add one in Menus → Restaurant.</p>}</div><div className={'optionPanel '+(!f.drink_active?'disabled':'')}><div className="optionTop"><SoftToggle checked={f.drink_active} label={`${tr.drink}: ${f.drink_active?'Yes':'No'}`} onChange={v=>setF({...f,drink_active:v,drink_restaurant_id:v?f.drink_restaurant_id:''})}/><strong>{tr.drink}</strong></div><label>Pick Drink Store</label><select disabled={!f.drink_active} value={f.drink_restaurant_id} onChange={e=>setF({...f,drink_restaurant_id:e.target.value})}><option value="">{tr.restaurant}</option>{drinkStores.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>{drinkStores.length===0&&<p className="hint">No drink store available. Add one in Menus → Restaurant and set type to Drink.</p>}</div></div></Card>}{tab==='summary'&&<Card><h2>{tr.summary}</h2>{data.orders.map(o=><OrderSummary key={o.id} o={o} data={data} tr={tr} confirmOrder={confirmOrder}/>)}</Card>}</>}
 function OrderSummary({o,data,tr,confirmOrder}){const group=data.groups.find(g=>g.id===o.group_id)?.name; const items=data.items.filter(i=>i.daily_order_id===o.id); const foodR=data.restaurants.find(r=>r.id===o.food_restaurant_id)?.name; const drinkR=data.restaurants.find(r=>r.id===o.drink_restaurant_id)?.name; return <div className="menuCard"><b>{o.order_date} · {group} · {o.status}</b><p>{tr.food}: {foodR||'-'} | {tr.drink}: {drinkR||'-'}</p><table><tbody>{items.map(i=><tr key={i.id}><td>{data.profiles.find(p=>p.id===i.user_profile_id)?.name}</td><td>{i.item_type}</td><td>{data.meals.find(m=>m.id===i.meal_id)?.name||i.status}</td><td>{i.paid?tr.paid:tr.unpaid}</td></tr>)}</tbody></table>{o.status!=='confirmed'&&<button className="primary small" onClick={()=>confirmOrder(o)}>{tr.confirm}</button>}</div>}

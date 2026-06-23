@@ -1,65 +1,35 @@
-# Chi-Fan v4.1.2 Supabase-style UI
+# Chi-Fan v4.1.5 Menu Builder
 
-This package is a clean v4 build with admin user/group management.
+This build updates the Menus module:
 
-## Fresh setup
+- Tabs simplified to **Build Menu** and **Menu List**.
+- Build Menu toggles between **Food Menu** and **Drink Menu**.
+- Restaurant/store entry uses a vertical flow: name, phone numbers, address.
+- `+ add phone number` supports additional visible phone fields; the database stores the first two as Phone 1 and Phone 2.
+- Categories are optional.
+- Items can be added under categories or without category.
+- Each item can include manual selectable options such as size, spice level, ice level, etc.
+- A live overview preview appears beside the form.
+- Menu List shows menus as cards with nested category cards.
 
-1. In Supabase, delete old test users:
-   Authentication > Users > delete test users.
+## Required SQL
 
-2. In Supabase SQL Editor, run:
-   `supabase-full-reset-v4.sql`
+Run this once if not already run:
 
-3. Create `.env` in the project root:
-
-```env
-VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```sql
+alter table if exists public.meals
+add column if not exists options jsonb not null default '{}'::jsonb;
 ```
 
-4. Run locally:
+## Run locally
 
 ```powershell
 npm install --registry=https://registry.npmjs.org/
 npm run dev
 ```
 
-5. Open:
+Open:
 
 ```text
 http://127.0.0.1:5173/
 ```
-
-6. Register the first admin:
-
-- Name: Hassan Bailou
-- Email: hassan.bailou@siemens.com
-- Password: 12345678
-- Phone: 0903609753
-- TSMC Long Phone: 0919773536
-- TSMC Short Phone: 8790233
-- Group: Default Group
-
-The app automatically protects this admin account.
-
-## Important note about Admin-created users
-
-With a frontend-only Supabase app, the admin can create and approve the user profile, assign groups, and assign roles. The user still needs to register once with the same email address to create their actual Supabase Auth password. The app then links that login to the existing profile by email.
-
-## v4.1.2 changes
-
-- Admin can add user profiles.
-- Admin can edit user details.
-- Admin can approve/reject/inactivate users.
-- Admin can assign multiple groups to users.
-- Admin can set role: User / Manager / Admin.
-- Admin can assign one managed group to a manager.
-- Admin can add/edit/archive/restore groups.
-- Protected Hassan Bailou admin cannot be removed, demoted, or deactivated.
-
-## v4.1.4 update
-- Restaurants are reorganized into Add Food Restaurant and Add Drink Store cards.
-- Restaurant entry fields unlock after selecting the restaurant/store type.
-- Category and item creation is available directly below each restaurant card.
-- Restaurant and category selections are kept after adding items for faster data entry.
-- Optional item properties were added. Run `supabase-v4.1.4-menu-options-migration.sql` to store them.
